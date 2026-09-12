@@ -1,24 +1,13 @@
 "use client";
-import Image from "next/image";
 import { Badge } from "@/components/ui/badge"
 
 export default function BrandHeader() {
   return (
     <section className="text-center mb-6">
-      {/* Logo y título */}
-      <div className="mx-auto mb-2 inline-flex items-center gap-2">
-        <Image
-          src="/logo-maquinarias.png"
-          alt="Logo Maquinarias"
-          width={200}
-          height={200}
-          className="object-contain w-32 sm:w-40 md:w-48 lg:w-56"
-          priority
-        />
-      </div>
+      <div className="mx-auto mb-3 inline-flex rounded-xl bg-neutral-950 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white">NN Feedback</div>
 
       {/* Título secundario */}
-      <h2 className="text-3xl font-semibold text-neutral-950">Feedback del Asesor</h2>
+      <h2 className="text-3xl font-semibold text-neutral-950">Feedback del asesor</h2>
 
       {/* Descripción */}
       <p className="text-neutral-950 mt-2 max-w-xl mx-auto">
