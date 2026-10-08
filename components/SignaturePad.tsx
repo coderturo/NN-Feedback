@@ -7,9 +7,10 @@ import { RotateCcw, Check, PenTool } from "lucide-react";
 interface SignaturePadProps {
   value: string | null;
   onChange: (dataUrl: string | null) => void;
+  label?: string;
 }
 
-export function SignaturePad({ value, onChange }: SignaturePadProps) {
+export function SignaturePad({ value, onChange, label }: SignaturePadProps) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = React.useState(false);
   const [hasSignature, setHasSignature] = React.useState(false);
@@ -120,8 +121,8 @@ export function SignaturePad({ value, onChange }: SignaturePadProps) {
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs text-slate-600">
         <div className="flex items-center gap-1.5 font-medium">
-          <PenTool className="w-3.5 h-3.5 text-[#E31E24]" />
-          <span>Firma Digital del Asesor (Dibuja con el mouse o tu dedo)</span>
+          <PenTool className="w-3.5 h-3.5 text-stone-700" />
+          <span>{label || "Firma Digital del Asesor (Dibuja con el mouse o tu dedo)"}</span>
         </div>
         {hasSignature && (
           <span className="flex items-center gap-1 text-emerald-600 font-semibold">

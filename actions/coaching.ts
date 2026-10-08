@@ -1,20 +1,21 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { coachingSessions, NewCoachingSession } from "@/lib/db/schema";
+import { coachingSessions, supervisorSignatures, NewCoachingSession } from "@/lib/db/schema";
 import { resend } from "@/lib/resend";
 import { render } from "@react-email/render";
 import CoachingSummaryEmail from "@/emails/CoachingSummaryEmail";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, and } from "drizzle-orm";
 import { CampaignId, campaigns } from "@/lib/campaigns";
+import { requireUser } from "@/lib/auth-server";
 
 export interface SubmitSessionInput {
   campaign: CampaignId;
   fecha: string; // ISO date string
   tema: string;
-  supervisorNombre: string;
+  supervisorNombre?: string;
   supervisorEmail?: string;
   asesorNombre: string;
   asesorEmail: string;
@@ -32,6 +33,8 @@ export interface SubmitSessionResult {
   emailSent?: boolean;
   emailError?: string;
   dbSaved?: boolean;
+  firmaSupervisor?: string | null;
+  supervisorNombre?: string;
   error?: string;
 }
 
@@ -39,20 +42,37 @@ export async function submitCoachingSession(
   input: SubmitSessionInput
 ): Promise<SubmitSessionResult> {
   try {
+    const session = await requireUser({ redirect: false });
     const sessionDate = new Date(input.fecha);
+
+    const supervisorId = session.user.id;
+    const supervisorNombre = session.user.name;
+    const supervisorEmail = session.user.email;
+
+    // Obtener la firma registrada del supervisor
+    let firmaSupervisor: string | null = null;
+    if (db) {
+      const [sig] = await db
+        .select({ dataUrl: supervisorSignatures.dataUrl })
+        .from(supervisorSignatures)
+        .where(eq(supervisorSignatures.userId, supervisorId))
+        .limit(1);
+      firmaSupervisor = sig?.dataUrl || null;
+    }
 
     // 1. Guardar en Neon Postgres (Drizzle)
     let savedId: string | undefined = undefined;
     let dbSaved = false;
 
-    if (process.env.DATABASE_URL) {
+    if (db) {
       try {
         const newRecord: NewCoachingSession = {
           fecha: sessionDate,
           campaign: input.campaign,
           tema: input.tema,
-          supervisorNombre: input.supervisorNombre,
-          supervisorEmail: input.supervisorEmail || null,
+          supervisorId,
+          supervisorNombre,
+          supervisorEmail: supervisorEmail || null,
           asesorNombre: input.asesorNombre,
           asesorEmail: input.asesorEmail,
           detalleLlamada: input.detalleLlamada,
@@ -60,6 +80,7 @@ export async function submitCoachingSession(
           mePreocupa: input.mePreocupa,
           teSugiero: input.teSugiero || null,
           compromiso: input.compromiso,
+          firmaSupervisor,
         };
 
         const [result] = await db
@@ -95,7 +116,7 @@ export async function submitCoachingSession(
             campaignAccent: selectedCampaign.accent,
             campaignSoft: selectedCampaign.soft,
             campaignLogoUrl: appUrl ? `${appUrl}${selectedCampaign.logo}` : undefined,
-            supervisorNombre: input.supervisorNombre,
+            supervisorNombre,
             fecha: fechaFormateada,
             tema: input.tema,
             detalleLlamada: input.detalleLlamada,
@@ -135,6 +156,8 @@ export async function submitCoachingSession(
       dbSaved,
       emailSent,
       emailError,
+      firmaSupervisor,
+      supervisorNombre,
     };
   } catch (error) {
     console.error("Error procesando sesión:", error);
@@ -146,32 +169,33 @@ export async function submitCoachingSession(
   }
 }
 
-export async function getCoachingHistory(campaign?: CampaignId, asesorEmail?: string) {
-  if (!process.env.DATABASE_URL) {
+export async function getCoachingHistory(campaign?: CampaignId) {
+  const session = await requireUser({ redirect: false });
+
+  if (!db) {
     return [];
   }
 
   try {
-    if (asesorEmail) {
-      return await db
-        .select()
-        .from(coachingSessions)
-        .where(eq(coachingSessions.asesorEmail, asesorEmail))
-        .orderBy(desc(coachingSessions.fecha));
+    const userRole = (session.user as { role?: string | null }).role;
+    const isSupervisor = userRole === "supervisor";
+
+    const conditions = [];
+
+    if (isSupervisor) {
+      conditions.push(eq(coachingSessions.supervisorId, session.user.id));
     }
 
     if (campaign) {
-      return await db
-        .select()
-        .from(coachingSessions)
-        .where(eq(coachingSessions.campaign, campaign))
-        .orderBy(desc(coachingSessions.fecha))
-        .limit(50);
+      conditions.push(eq(coachingSessions.campaign, campaign));
     }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     return await db
       .select()
       .from(coachingSessions)
+      .where(whereClause)
       .orderBy(desc(coachingSessions.fecha))
       .limit(50);
   } catch (error) {
@@ -179,3 +203,83 @@ export async function getCoachingHistory(campaign?: CampaignId, asesorEmail?: st
     return [];
   }
 }
+
+export async function deleteCoachingSession(id: string) {
+  try {
+    const session = await requireUser({ redirect: false });
+    const userRole = (session.user as { role?: string | null }).role;
+    if (userRole !== "admin") {
+      return {
+        success: false,
+        error: "Acceso denegado: solo los administradores pueden eliminar registros del historial.",
+      };
+    }
+
+    if (!id) {
+      return {
+        success: false,
+        error: "ID de sesión requerido.",
+      };
+    }
+
+    if (!db) {
+      return {
+        success: false,
+        error: "Base de datos no disponible.",
+      };
+    }
+
+    await db.delete(coachingSessions).where(eq(coachingSessions.id, id));
+
+    return {
+      success: true,
+      message: "Sesión eliminada correctamente del historial.",
+    };
+  } catch (error) {
+    console.error("Error al eliminar sesión de coaching:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error desconocido al eliminar la sesión.",
+    };
+  }
+}
+
+export async function clearCoachingHistory(campaign?: CampaignId) {
+  try {
+    const session = await requireUser({ redirect: false });
+    const userRole = (session.user as { role?: string | null }).role;
+    if (userRole !== "admin") {
+      return {
+        success: false,
+        error: "Acceso denegado: solo los administradores pueden vaciar el historial.",
+      };
+    }
+
+    if (!db) {
+      return {
+        success: false,
+        error: "Base de datos no disponible.",
+      };
+    }
+
+    if (campaign) {
+      await db.delete(coachingSessions).where(eq(coachingSessions.campaign, campaign));
+    } else {
+      await db.delete(coachingSessions);
+    }
+
+    return {
+      success: true,
+      message: campaign
+        ? `Historial de la campaña "${campaign}" eliminado correctamente.`
+        : "Todo el historial de sesiones ha sido eliminado.",
+    };
+  } catch (error) {
+    console.error("Error al vaciar historial de coaching:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error desconocido al vaciar el historial.",
+    };
+  }
+}
+
