@@ -21,6 +21,10 @@ RESEND_API_KEY=
 RESEND_FROM_EMAIL=
 RESEND_FROM_NAME=NN Feedback
 NEXT_PUBLIC_APP_URL=https://tu-dominio.com
+
+# Better Auth
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:3000
 ```
 
 ## Base de datos
@@ -37,6 +41,31 @@ npm run db:push
 npm run lint
 npm run build
 ```
+
+## Gestión de usuarios (Administración)
+
+Los usuarios no se registran públicamente; son creados y administrados exclusivamente desde la terminal:
+
+### Crear usuario
+```bash
+npm run user:create -- <correo> "<nombre completo>" <admin|supervisor>
+```
+*Ejemplo:*
+```bash
+npm run user:create -- supervisor1@empresa.com "Carlos Mendoza" supervisor
+npm run user:create -- admin@empresa.com "Administrador General" admin
+```
+Genera una contraseña temporal segura que se muestra una sola vez. En el primer acceso, el usuario deberá cambiarla obligatoriamente.
+
+### Restablecer contraseña
+```bash
+npm run user:reset -- <correo>
+```
+*Ejemplo:*
+```bash
+npm run user:reset -- supervisor1@empresa.com
+```
+Genera una nueva contraseña temporal, revoca las sesiones activas y fuerza el cambio de contraseña en su próximo acceso.
 
 ## Estructura
 

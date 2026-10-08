@@ -16,8 +16,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "./DatePicker";
 import { CoachingVoucherModal } from "./CoachingVoucherModal";
 import { SignaturePad } from "./SignaturePad";
-import { SupervisorSignatureModal } from "./SupervisorSignatureModal";
-import { resolveSupervisorSignature, getStoredSupervisorSignature } from "@/lib/signatureUtils";
 import { submitCoachingSession } from "@/actions/coaching";
 import { toast } from "sonner";
 import {
@@ -30,7 +28,7 @@ import {
   Send,
   Loader2,
   Info,
-  PenTool,
+  CheckCircle2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -43,13 +41,27 @@ interface CoachingSessionFormProps {
   campaign: CampaignId;
   auditType: string;
   onAuditTypeChange: (auditType: string) => void;
+  user?: {
+    id?: string;
+    name: string;
+    email?: string;
+    role?: string | null;
+    signature?: string | null;
+  };
 }
 
-export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: CoachingSessionFormProps) {
+export function CoachingSessionForm({
+  campaign,
+  auditType,
+  onAuditTypeChange,
+  user,
+}: CoachingSessionFormProps) {
+  const supervisorNombre = user?.name || "Supervisor";
+  const currentCampaign = campaigns[campaign];
+
   // Estados del formulario
   const [asesorNombre, setAsesorNombre] = React.useState("");
   const [asesorEmail, setAsesorEmail] = React.useState("");
-  const [supervisorNombre, setSupervisorNombre] = React.useState("");
   const [fecha, setFecha] = React.useState<Date | null>(new Date());
   const [detalleLlamada, setDetalleLlamada] = React.useState("");
   const [meGusta, setMeGusta] = React.useState("");
@@ -57,12 +69,6 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
   const [teSugiero, setTeSugiero] = React.useState("");
   const [compromiso, setCompromiso] = React.useState("");
   const [firmaAsesor, setFirmaAsesor] = React.useState<string | null>(null);
-
-  // Estado de firma del supervisor
-  const [sigModalOpen, setSigModalOpen] = React.useState(false);
-  const [, setCustomSigVersion] = React.useState(0);
-
-  const hasCustomSig = !!getStoredSupervisorSignature(supervisorNombre || "Arturo Santiago");
 
   // Estado de carga y modal
   const [submitting, setSubmitting] = React.useState(false);
@@ -72,7 +78,6 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
   const resetForm = () => {
     setAsesorNombre("");
     setAsesorEmail("");
-    setSupervisorNombre("");
     setFecha(new Date());
     onAuditTypeChange("Refuerzo Semanal");
     setDetalleLlamada("");
@@ -94,7 +99,6 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
     if (
       !asesorNombre ||
       !asesorEmail ||
-      !supervisorNombre ||
       !fecha ||
       !detalleLlamada ||
       !meGusta ||
@@ -137,13 +141,11 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
           });
         }
 
-        const supSignature = resolveSupervisorSignature(supervisorNombre);
-
         setVoucherData({
           campaign,
           asesorNombre,
           asesorEmail,
-          supervisorNombre,
+          supervisorNombre: result.supervisorNombre || supervisorNombre,
           fecha: format(fecha, "dd 'de' MMMM, yyyy", { locale: es }),
           tema: auditType,
           detalleLlamada,
@@ -152,7 +154,7 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
           teSugiero,
           compromiso,
           firmaAsesor,
-          firmaSupervisor: supSignature,
+          firmaSupervisor: result.firmaSupervisor || user?.signature,
           emailSent: result.emailSent,
           emailError: result.emailError,
         });
@@ -235,33 +237,22 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
                 </div>
               </div>
 
-              {/* Supervisor a Cargo */}
+              {/* Supervisor a Cargo (Vinculado a la sesión actual) */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="supervisor" className="text-xs font-semibold text-slate-800">
-                    Supervisor a Cargo <span className="text-red-600">*</span>
+                    Supervisor a Cargo
                   </Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSigModalOpen(true)}
-                    className="h-6 px-2 text-[11px] text-[#E31E24] hover:text-[#c71b1f] hover:bg-rose-50"
-                  >
-                    <PenTool className="w-3 h-3 mr-1" />
-                    {hasCustomSig ? "Firma personalizada activa" : "Configurar mi firma"}
-                  </Button>
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Firma vinculada
+                  </span>
                 </div>
-                <Select value={supervisorNombre} onValueChange={setSupervisorNombre} required>
-                  <SelectTrigger id="supervisor" className="rounded-lg h-10 border-slate-300 bg-white">
-                    <SelectValue placeholder="Selecciona un supervisor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Arturo Santiago">Arturo Santiago</SelectItem>
-                    <SelectItem value="Supervisor de Operaciones">Supervisor de Operaciones</SelectItem>
-                    <SelectItem value="Supervisor de Calidad">Supervisor de Calidad</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="supervisor"
+                  value={supervisorNombre}
+                  disabled
+                  className="rounded-lg h-10 border-stone-200 bg-stone-100 text-stone-700 font-medium cursor-not-allowed select-none"
+                />
               </div>
 
               {/* Tema o Tipo de Evaluacion */}
@@ -299,7 +290,10 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
         <Card className="overflow-hidden rounded-[1.5rem] border border-stone-200 bg-white py-0 shadow-sm lg:col-span-5">
           <CardHeader className="border-b border-stone-100 bg-stone-50 px-6 py-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#E31E24] text-white rounded-lg">
+              <div
+                className="p-2 text-white rounded-lg shadow-xs"
+                style={{ backgroundColor: currentCampaign.accent }}
+              >
                 <Headphones className="w-5 h-5" />
               </div>
               <div>
@@ -399,16 +393,19 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
         {/* ========================================================
             SECCION 3: PACTO DEL ASESOR (Compromiso individual & Firma)
         ======================================================== */}
-        <Card className="overflow-hidden rounded-[1.5rem] border-0 py-0 text-white shadow-sm lg:col-span-7" style={{ backgroundColor: campaigns[campaign].accent }}>
+        <Card
+          className="overflow-hidden rounded-[1.5rem] border-0 py-0 text-white shadow-sm lg:col-span-7"
+          style={{ backgroundColor: currentCampaign.accent }}
+        >
           <CardHeader className="border-b border-white/15 bg-black/10 px-6 py-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#E31E24] text-white rounded-lg shadow-sm">
+              <div className="p-2 bg-white/20 text-white rounded-lg shadow-xs border border-white/20 backdrop-blur-xs">
                 <Handshake className="w-5 h-5" />
               </div>
               <div>
                 <CardTitle className="flex items-center gap-2 text-base font-bold text-white">
                   3. El Pacto de Mejora del Asesor
-                  <span className="text-[11px] font-semibold bg-[#E31E24] text-white px-2 py-0.5 rounded tracking-wider uppercase">
+                  <span className="text-[11px] font-bold bg-white/20 text-white border border-white/30 px-2.5 py-0.5 rounded-md tracking-wider uppercase backdrop-blur-xs">
                     Compromiso
                   </span>
                 </CardTitle>
@@ -429,7 +426,7 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
                 rows={3}
                 value={compromiso}
                 onChange={(e) => setCompromiso(e.target.value)}
-                className="rounded-xl border-rose-300 bg-white focus-visible:ring-[#E31E24] text-sm p-3.5 text-slate-900 font-medium placeholder:font-normal placeholder:text-slate-400"
+                className="rounded-xl border-stone-200 bg-white focus-visible:ring-stone-400 text-sm p-3.5 text-slate-900 font-medium placeholder:font-normal placeholder:text-slate-400"
                 required
               />
             </div>
@@ -449,7 +446,8 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
             type="submit"
             disabled={submitting}
             size="lg"
-            className="w-full sm:w-auto bg-[#E31E24] hover:bg-[#c71b1f] text-white font-bold px-8 py-3 rounded-xl shadow-md transition-all"
+            style={{ backgroundColor: currentCampaign.accent }}
+            className="w-full sm:w-auto text-white font-bold px-8 py-3 rounded-xl shadow-md transition-all hover:opacity-90 cursor-pointer"
           >
             {submitting ? (
               <>
@@ -471,14 +469,6 @@ export function CoachingSessionForm({ campaign, auditType, onAuditTypeChange }: 
         open={voucherModalOpen}
         onOpenChange={handleVoucherOpenChange}
         data={voucherData}
-      />
-
-      {/* Modal de Configuración de Firma del Supervisor */}
-      <SupervisorSignatureModal
-        open={sigModalOpen}
-        onOpenChange={setSigModalOpen}
-        supervisorName={supervisorNombre || "Arturo Santiago"}
-        onSignatureUpdated={() => setCustomSigVersion((v) => v + 1)}
       />
     </>
   );

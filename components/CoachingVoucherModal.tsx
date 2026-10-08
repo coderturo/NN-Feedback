@@ -100,7 +100,14 @@ export function CoachingVoucherModal({
                 <p className="text-xs text-slate-500">Gestión de Calidad & Operaciones</p>
               </div>
               <div className="text-right">
-                <span className="inline-block bg-rose-50 text-[#E31E24] border border-[#E31E24]/20 text-xs px-2.5 py-1 rounded font-semibold">
+                <span
+                  className="inline-block text-xs px-2.5 py-1 rounded font-semibold border"
+                  style={{
+                    color: campaigns[data.campaign].accent,
+                    backgroundColor: campaigns[data.campaign].soft,
+                    borderColor: `${campaigns[data.campaign].accent}33`,
+                  }}
+                >
                   Oficial
                 </span>
                 <p className="text-xs text-slate-500 mt-2 font-mono">Fecha: {data.fecha}</p>
@@ -161,8 +168,17 @@ export function CoachingVoucherModal({
             </div>
 
             {/* Compromiso del Asesor */}
-            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl">
-              <h5 className="text-xs font-extrabold uppercase tracking-wider text-[#E31E24] mb-1">
+            <div
+              className="p-4 rounded-xl border"
+              style={{
+                backgroundColor: campaigns[data.campaign].soft,
+                borderColor: `${campaigns[data.campaign].accent}33`,
+              }}
+            >
+              <h5
+                className="text-xs font-extrabold uppercase tracking-wider mb-1"
+                style={{ color: campaigns[data.campaign].accent }}
+              >
                 Compromiso Asumido por el Asesor
               </h5>
               <p className="text-sm font-semibold text-slate-900 italic leading-relaxed">
@@ -216,7 +232,8 @@ export function CoachingVoucherModal({
               size="sm"
               onClick={handleDownloadPDF}
               disabled={downloading}
-              className="bg-[#E31E24] hover:bg-[#c71b1f] text-white font-medium"
+              style={{ backgroundColor: campaigns[data.campaign].accent }}
+              className="text-white font-medium hover:opacity-90"
             >
               <Download className="w-4 h-4 mr-1.5" />
               {downloading ? "Generando..." : "Descargar PDF Oficial"}
