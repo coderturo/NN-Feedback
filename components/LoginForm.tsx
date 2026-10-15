@@ -2,7 +2,13 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -36,13 +42,15 @@ export function LoginForm() {
       });
 
       if (error) {
-        setErrorMessage("Correo o contraseña incorrectos.");
+        console.error("Login error:", error.status, error.message);
+        setErrorMessage(
+          `${error.status}: ${error.message ?? "Correo o contraseña incorrectos."}`,
+        );
         toast.error("No se pudo iniciar sesión", {
-          description: "Correo o contraseña incorrectos.",
+          description: error.message ?? "Correo o contraseña incorrectos.",
         });
         return;
       }
-
       if (data) {
         toast.success("Sesión iniciada", {
           description: "Ingresando a la plataforma...",
@@ -52,7 +60,9 @@ export function LoginForm() {
       }
     } catch (err) {
       console.error("Error en login:", err);
-      setErrorMessage("Ocurrió un error inesperado. Por favor, intenta de nuevo.");
+      setErrorMessage(
+        "Ocurrió un error inesperado. Por favor, intenta de nuevo.",
+      );
       toast.error("Error de conexión", {
         description: "No se pudo conectar con el servidor.",
       });
@@ -81,7 +91,10 @@ export function LoginForm() {
       <CardContent className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-xs font-semibold text-slate-800">
+            <Label
+              htmlFor="email"
+              className="text-xs font-semibold text-slate-800"
+            >
               Correo Electrónico <span className="text-red-600">*</span>
             </Label>
             <Input
@@ -98,7 +111,10 @@ export function LoginForm() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-xs font-semibold text-slate-800">
+            <Label
+              htmlFor="password"
+              className="text-xs font-semibold text-slate-800"
+            >
               Contraseña <span className="text-red-600">*</span>
             </Label>
             <Input
